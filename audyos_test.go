@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -46,12 +45,12 @@ func finalizeTestApi(db *sql.DB) {
 	defer db.Close()
 }
 
-func TestApi_HandleNewRecord(t *testing.T)  {
+func TestApi_HandleNewRecord(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		body io.Reader
-		expectedCode int
+		body            io.Reader
+		expectedCode    int
 		expectedRecords []map[string]interface{}
 	}
 	for _, tcase := range []testCase{
@@ -62,12 +61,12 @@ func TestApi_HandleNewRecord(t *testing.T)  {
 		},
 		{
 			strings.NewReader(`{"name": "Queen - Bicycle", "duration": 87, "content": "02bef834dc89341aef"}`),
-			http.StatusOK,
+			http.StatusCreated,
 			[]map[string]interface{}{
 				{
-					"id":int64(1),
-					"name":"Queen - Bicycle",
-					"content": []byte("02bef834dc89341aef"),
+					"id":       int64(1),
+					"name":     "Queen - Bicycle",
+					"content":  []byte("02bef834dc89341aef"),
 					"owner_id": int64(1),
 				},
 			},
@@ -75,7 +74,7 @@ func TestApi_HandleNewRecord(t *testing.T)  {
 	} {
 		clearAllTables(db)
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", testAddr+"/records/new", tcase.body)
+		req := httptest.NewRequest("POST", testAddr+"/v1/records/new", tcase.body)
 		api.HandleNewRecord(recorder, req, 1)
 		if recorder.Code != tcase.expectedCode {
 			t.Fatalf("expected %d; got: %d", tcase.expectedCode, recorder.Code)
@@ -94,8 +93,8 @@ func TestApi_HandleRegistration(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		body io.Reader
-		expectedCode int
+		body            io.Reader
+		expectedCode    int
 		expectedRecords []map[string]interface{}
 	}
 	for _, tcase := range []testCase{
@@ -109,10 +108,10 @@ func TestApi_HandleRegistration(t *testing.T) {
 			http.StatusOK,
 			[]map[string]interface{}{
 				{
-					"id":int64(1),
-					"login":"anton21",
+					"id":       int64(1),
+					"login":    "anton21",
 					"password": "heyyou1",
-					"name": "Anton",
+					"name":     "Anton",
 				},
 			},
 		},
@@ -138,8 +137,8 @@ func TestApi_HandleAuthorization(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		body io.Reader
-		expectedCode int
+		body               io.Reader
+		expectedCode       int
 		expectedKeysInBody []string
 	}
 	for _, tcase := range []testCase{
@@ -168,17 +167,16 @@ func TestApi_HandleAuthorization(t *testing.T) {
 			http.StatusForbidden,
 			nil,
 		},
-
 	} {
 		clearAllTables(db)
 		recorder := httptest.NewRecorder()
 
 		// Need to register test user first
-		req := httptest.NewRequest("POST", testAddr+"/register",
+		req := httptest.NewRequest("POST", testAddr+"/v1/users/register",
 			strings.NewReader(`{"login": "user1", "password": "123", "name": "Anton"}`))
 		api.HandleRegistration(recorder, req)
 
-		req = httptest.NewRequest("POST", testAddr+"/auth", tcase.body)
+		req = httptest.NewRequest("POST", testAddr+"/v1/users/auth", tcase.body)
 		api.HandleAuthorization(recorder, req)
 		if recorder.Code != tcase.expectedCode {
 			t.Fatalf("expected %d; got: %d", tcase.expectedCode, recorder.Code)
@@ -206,10 +204,11 @@ func TestApi_HandleShareRecord(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		body io.Reader
-		expectedCode int
+		body            io.Reader
+		expectedCode    int
 		expectedRecords []map[string]interface{}
 	}
+	const testUserId = 1
 	for _, tcase := range []testCase{
 		{
 			nil,
@@ -222,7 +221,7 @@ func TestApi_HandleShareRecord(t *testing.T) {
 			[]map[string]interface{}{
 				{
 					"record_id": int64(1),
-					"to": int64(2),
+					"to":        int64(2),
 				},
 			},
 		},
@@ -236,13 +235,17 @@ func TestApi_HandleShareRecord(t *testing.T) {
 		clearAllTables(db)
 		recorder := httptest.NewRecorder()
 
-		// Need to create record of user 1 first to be able to share it
-		req := httptest.NewRequest("POST", testAddr+"/records/new",
-			strings.NewReader(`{"name": "song1", "duration": 98, "content": "123"}`))
-		api.HandleNewRecord(recorder, req, 1)
+		check(insertUser(db, "user1", "123", "Bob"), t)
+		check(insertUser(db, "user2", "qwerty", "Kurt"), t)
 
-		req = httptest.NewRequest("POST", testAddr+"/records/share", tcase.body)
-		api.HandleShareRecord(recorder, req, 1)
+		// Need to create record of user 1 first to be able to share it
+		req := httptest.NewRequest("POST", testAddr+"/v1/records/new",
+			strings.NewReader(`{"name": "song1", "duration": 98, "content": "123"}`))
+		api.HandleNewRecord(recorder, req, testUserId)
+
+		recorder = httptest.NewRecorder()
+		req = httptest.NewRequest("POST", testAddr+"/v1/records/share", tcase.body)
+		api.HandleShareRecord(recorder, req, testUserId)
 		if recorder.Code != tcase.expectedCode {
 			t.Fatalf("expected %d; got: %d", tcase.expectedCode, recorder.Code)
 		}
@@ -260,8 +263,8 @@ func TestApi_HandleUnshareRecord(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		body io.Reader
-		expectedCode int
+		body            io.Reader
+		expectedCode    int
 		expectedRecords []map[string]interface{}
 	}
 	const testUserId = 1
@@ -284,19 +287,21 @@ func TestApi_HandleUnshareRecord(t *testing.T) {
 		},
 	} {
 		clearAllTables(db)
-		recorder := httptest.NewRecorder()
 
 		// Need to create record of user 1 first to be able to share it
-		req := httptest.NewRequest("POST", testAddr+"/records/new",
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", testAddr+"/v1/records/new",
 			strings.NewReader(`{"name": "song1", "duration": 98, "content": "123"}`))
 		api.HandleNewRecord(recorder, req, testUserId)
 
 		// Then need to share record
-		req = httptest.NewRequest("POST", testAddr+"/records/share",
+		recorder = httptest.NewRecorder()
+		req = httptest.NewRequest("POST", testAddr+"/v1/records/share",
 			strings.NewReader(`{"record_id": 1, "user_id": 2}`))
 		api.HandleShareRecord(recorder, req, testUserId)
 
-		req = httptest.NewRequest("POST", testAddr+"/records/unshare", tcase.body)
+		recorder = httptest.NewRecorder()
+		req = httptest.NewRequest("POST", testAddr+"/v1/records/unshare", tcase.body)
 		api.HandleUnshareRecord(recorder, req, testUserId)
 
 		if recorder.Code != tcase.expectedCode {
@@ -317,7 +322,7 @@ func TestApi_HandleRecordsList(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		urlParams string
+		urlParams    string
 		expectedCode int
 		expectedJson []byte
 	}
@@ -334,8 +339,8 @@ func TestApi_HandleRecordsList(t *testing.T) {
 	// TODO: test of sorting by owner
 	for _, tcase := range []testCase{
 		{
-			urlParams:"?limit=10&offset=0&sort_by=record",
-			expectedCode:http.StatusOK,
+			urlParams:    "?limit=10&offset=0&sort_by=record",
+			expectedCode: http.StatusOK,
 			expectedJson: []byte(`
 {
 	"total_count": 3,
@@ -383,7 +388,7 @@ func TestApi_HandleRecordsList(t *testing.T) {
 		initTables()
 		recorder := httptest.NewRecorder()
 
-		req := httptest.NewRequest("GET", testAddr+tcase.urlParams, nil)
+		req := httptest.NewRequest("GET", testAddr+"/v1/records"+tcase.urlParams, nil)
 		api.HandleRecordsList(recorder, req, testUserId)
 
 		if recorder.Code != tcase.expectedCode {
@@ -393,7 +398,6 @@ func TestApi_HandleRecordsList(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read body: %v", err)
 		}
-		fmt.Println(string(bodyBytes))
 		var body, bodyExpected map[string]interface{}
 		check(json.Unmarshal(bodyBytes, &body), t)
 		check(json.Unmarshal(tcase.expectedJson, &bodyExpected), t)
@@ -407,7 +411,7 @@ func TestApi_HandleSharersList(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
 	type testCase struct {
-		urlParams string
+		urlParams    string
 		expectedCode int
 		expectedJson []byte
 	}
@@ -424,8 +428,8 @@ func TestApi_HandleSharersList(t *testing.T) {
 	}
 	for _, tcase := range []testCase{
 		{
-			urlParams:"?limit=10&offset=0",
-			expectedCode:http.StatusOK,
+			urlParams:    "?limit=10&offset=0",
+			expectedCode: http.StatusOK,
 			expectedJson: []byte(`
 {
 	"total_count": 2,

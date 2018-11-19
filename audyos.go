@@ -13,7 +13,7 @@ var (
 	logI *log.Logger
 )
 
-func init()  {
+func init() {
 	logE = log.New(os.Stderr, "[E] ", 0)
 	logI = log.New(os.Stderr, "[I] ", 0)
 }

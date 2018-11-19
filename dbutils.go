@@ -11,10 +11,10 @@ func initDB(conf *config) (*sql.DB, error) {
 	dbParams := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", conf.DbUser, conf.DbPasswd, conf.DbName)
 	db, err := sql.Open("postgres", dbParams)
 	if err != nil {
-		return nil, errors.Wrap(err,"validate db connection params")
+		return nil, errors.Wrap(err, "validate db connection params")
 	}
 	if err := db.Ping(); err != nil {
-		return nil, errors.Wrap(err, "check connection to " + conf.DbName)
+		return nil, errors.Wrap(err, "check connection to "+conf.DbName)
 	}
 	return db, nil
 }

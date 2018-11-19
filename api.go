@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/mitchellh/mapstructure"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 type Api struct {
-	db *sql.DB
+	db   *sql.DB
 	conf *config
 }
 
@@ -139,8 +138,8 @@ func (a *Api) HandleNewRecord(w http.ResponseWriter, r *http.Request, userId int
 // Note: needs auth
 func (a *Api) HandleShareRecord(w http.ResponseWriter, r *http.Request, userId int64) {
 	var reqBody struct {
-		RecordId     int64 `json:"record_id"`
-		UserId int64  `json:"user_id"`
+		RecordId int64 `json:"record_id"`
+		UserId   int64 `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		err = fmt.Errorf("decode share request body: %v", err)
@@ -167,8 +166,8 @@ WHERE owner_id=$2 AND R.id=$3;
 // Unshare user's record by removing corresponding row in 'records' table
 func (a *Api) HandleUnshareRecord(w http.ResponseWriter, r *http.Request, userId int64) {
 	var reqBody struct {
-		RecordId     int64 `json:"record_id"`
-		UserId int64  `json:"user_id"`
+		RecordId int64 `json:"record_id"`
+		UserId   int64 `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		err = fmt.Errorf("decode share request body: %v", err)
@@ -205,7 +204,7 @@ func (a *Api) HandleRecordsList(w http.ResponseWriter, r *http.Request, userId i
 		return
 	}
 	const (
-		sortByOwner = "owner"
+		sortByOwner  = "owner"
 		sortByRecord = "record"
 	)
 	sortby := r.URL.Query().Get("sort_by")
@@ -235,9 +234,6 @@ func (a *Api) HandleRecordsList(w http.ResponseWriter, r *http.Request, userId i
 	} else {
 		orderSuffix = "rec_name"
 	}
-	log.Printf("order suffix: %s", orderSuffix)
-	log.Printf("limit: %d", limit)
-	log.Printf("offset: %d", offset)
 	rows, err := a.db.Query(fmt.Sprintf(`
 SELECT user_records.rec_id,
        user_records.rec_name,
@@ -281,7 +277,6 @@ ORDER BY user_records.rec_owner DESC,
 			replyWithError(w, http.StatusInternalServerError, err)
 			return
 		}
-		logI.Printf("record: %v", rec)
 		if len(resBody.Records) > 0 && resBody.Records[len(resBody.Records)-1].Id == rec.Id {
 			resBody.Records[len(resBody.Records)-1].SharedTo = append(resBody.Records[len(resBody.Records)-1].SharedTo,
 				shared{sharedToId.Int64, sharedToName.String})
@@ -337,13 +332,13 @@ OFFSET $2;
 		return
 	}
 	type user struct {
-		Id int64 `json:"id"`
-		Name string `json:"name"`
-		SharedRecords int64 `json:"shared_records"`
+		Id            int64  `json:"id"`
+		Name          string `json:"name"`
+		SharedRecords int64  `json:"shared_records"`
 	}
 	resBody := struct {
-		TotalCount int64 `json:"total_count"`
-		Users []user `json:"users"`
+		TotalCount int64  `json:"total_count"`
+		Users      []user `json:"users"`
 	}{}
 	for rows.Next() {
 		var u user
