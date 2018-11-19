@@ -1,12 +1,20 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/mitchellh/mapstructure"
 	"net/http"
 )
+
+type ApiHandler struct {
+	doHandle func(w http.ResponseWriter, r *http.Request)
+}
+
+func (h *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.doHandle(w, r)
+}
 
 type tokenClaims struct {
 	Login  string `mapstructure:"login"`
@@ -14,17 +22,14 @@ type tokenClaims struct {
 	Exp    int64  `mapstructure:"exp"`
 }
 
-type authHandler struct {
-	handler
-	next func(w http.ResponseWriter, r *http.Request, userId int64, db *sql.DB, conf *config)
-}
-
-func newAuthHandler(next func(w http.ResponseWriter, r *http.Request, userId int64, db *sql.DB, conf *config), db *sql.DB, conf *config) *authHandler {
-	return &authHandler{next: next, handler: handler{db: db, conf: conf}}
+type ApiHandlerWithAuth struct {
+	ApiHandler
+	conf     *config
+	doHandle func(w http.ResponseWriter, r *http.Request, userId int64)
 }
 
 // TODO: close all bodies
-func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandlerWithAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	cookie, err := r.Cookie("access_token")
 	if err != nil {
@@ -55,5 +60,16 @@ func (h *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		replyWithError(w, http.StatusForbidden, err)
 		return
 	}
-	h.next(w, r, claims.UserId, h.db, h.conf)
+	h.doHandle(w, r, claims.UserId)
+}
+
+func replyWithError(w http.ResponseWriter, code int, err error) {
+	res := struct {
+		Error string `json:"error"`
+	}{err.Error()}
+	resBody, _ := json.Marshal(res)
+	w.WriteHeader(code)
+	if _, err := fmt.Fprint(w, string(resBody)); err != nil {
+		logE.Printf("reply with error: %v", err)
+	}
 }
