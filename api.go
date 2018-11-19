@@ -164,6 +164,7 @@ WHERE owner_id=$2 AND R.id=$3;
 }
 
 // Unshare user's record by removing corresponding row in 'records' table
+// Note: needs auth
 func (a *Api) HandleUnshareRecord(w http.ResponseWriter, r *http.Request, userId int64) {
 	var reqBody struct {
 		RecordId int64 `json:"record_id"`

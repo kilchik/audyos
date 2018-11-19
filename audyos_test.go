@@ -118,7 +118,7 @@ func TestApi_HandleRegistration(t *testing.T) {
 	} {
 		clearAllTables(db)
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "http://127.0.0.1:3042/register", tcase.body)
+		req := httptest.NewRequest("POST", testAddr+"/v1/users/register", tcase.body)
 		api.HandleRegistration(recorder, req)
 		if recorder.Code != tcase.expectedCode {
 			t.Fatalf("expected %d; got: %d", tcase.expectedCode, recorder.Code)
@@ -317,7 +317,6 @@ func TestApi_HandleUnshareRecord(t *testing.T) {
 	}
 }
 
-// TODO: extract URL prefix to constant
 func TestApi_HandleRecordsList(t *testing.T) {
 	api, db := initTestApi()
 	defer finalizeTestApi(db)
