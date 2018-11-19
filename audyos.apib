@@ -1,0 +1,270 @@
+FORMAT: 1A
+HOST: localhost:12347
+
+# Audyos API
+
+RESTful service that provides methods for uploading and sharing audiorecords
+
+## Users [/v1/users]
+
+### Register new user [POST /v1/users/register]
+
++ Request (application/json)
+
+        {
+            "login": "username",
+            "password": "123",
+            "name": "John Doe",
+        }
+
++ Response 200
+
++ Response 400
+
+        {
+            "error": "insert new user: ..."
+        }
+
+
+### Authorize user [POST /v1/users/auth]
+
++ Request (application/json)
+
+        {
+            "login": "username",
+            "password": "123",
+        }
+
++ Response 200
+
+        {
+            "access_token": "long jwt string..."
+        }
+
++ Response 400
+
+        {
+            "error": "decode request body: ..."
+        }
+
++ Response 403
+
+        {
+            "error": "no user with login..."
+        }
+
+
+### List all users who share their records [POST /v1/users/sharers]
+
++ Request (application/json)
+    + Headers
+
+            Cookie: access_token=valid_access_token
+
+    + Parameters
+        + offset: 0 (int, required) - start from record index
+        + limit: 100 (int, required) - number of records to select
+
+
++ Response 200
+
+        {
+            "total_count": 2,
+            "users": [
+                {
+                    "id": 1,
+                    "name": "David",
+                    "shared_records": 2 
+                },
+                {
+                    "id": 2,
+                    "name": "Richard",
+                    "shared_records": 1
+                }
+            ]
+        }
+
+## Records [/v1/records]
+
+### Create new record [POST /v1/records/new]
+
++ Request (application/json)
+    + Headers
+
+            Cookie: access_token=valid_access_token
+
+    + Body
+
+            {
+                "name": "song1",
+                "duration": 77,
+                "content": "abcdef123456789",
+            }
+
++ Response 201
+
++ Response 400
+
+        {
+            "error": "decode request body: ..."
+        }
+
++ Response 403
+
+        {
+            "error": "extract auth cookie: ..."
+        }
+
+### Share record [POST /v1/records/share]
+
++ Request (application/json)
+    + Headers
+
+            Cookie: access_token=valid_access_token
+
+    + Body
+
+            {
+                "record_id": 1,
+                "user_id": 1
+            }
+
++ Response 400
+
+        {
+            "error": "decode share request body: ..."
+        }
+
++ Response 400
+
+        {
+            "error": "decode request body: ..."
+        }
+
++ Response 403
+
+        {
+            "error": "extract auth cookie: ..."
+        }
+
++ Response 406
+
+        {
+            "error": "while insert shared record: ..."
+        }
+
+### Unshare record [POST /v1/records/unshare]
+
++ Request (application/json)
+    + Headers
+
+            Cookie: access_token=valid_access_token
+
+    + Body
+
+            {
+                "record_id": 1,
+                "user_id": 1
+            }
+
++ Response 400
+
+        {
+            "error": "decode share request body: ..."
+        }
+
++ Response 400
+
+        {
+            "error": "decode request body: ..."
+        }
+
++ Response 403
+
+        {
+            "error": "extract auth cookie: ..."
+        }
+
++ Response 406
+
+        {
+            "error": "while delete shared record: ..."
+        }
+
+### List all records available to user [GET /v1/records]
+
++ Request (application/json)
+    + Headers
+
+            Cookie: access_token=valid_access_token
+
+    + Parameters
+        + offset: 0 (int, required) - start from record index
+        + limit: 100 (int, required) - number of records to select
+        + sort_by (enum[string])
+
+            Sort by
+
+            + Members
+                + `owner`
+                + `record`
+
++ Response 200
+
+        {
+            "total_count": 3,
+            "records": [
+                {
+                    "id": 3,
+                    "name": "Hey You",
+                    "is_owner": true,
+                    "owner_id": 1,
+                    "owner_name": "David",
+                    "shared_to": []
+                },
+                {
+                    "id": 1,
+                    "name": "Time",
+                    "is_owner": true,
+                    "owner_id": 1,
+                    "owner_name": "David",
+                    "shared_to": [
+                        {
+                            "id": 2,
+                            "name": "Richard"
+                        }
+                    ]
+                },
+                {
+                    "id": 2,
+                    "name": "Catch The Rainbow",
+                    "is_owner": false,
+                    "owner_id": 2,
+                    "owner_name": "Richard",
+                    "shared_to": [
+                        {
+                            "id": 1,
+                            "name": "David"
+                        }
+                    ]
+                }
+            ]
+        }
+
++ Response 400
+
+        {
+            "error": "decode request body: ..."
+        }
+
++ Response 400
+
+        {
+            "error": "invalid offset/limit/sort_by param: ..."
+        }
+
++ Response 403
+
+        {
+            "error": "extract auth cookie: ..."
+        }
