@@ -40,6 +40,7 @@ func (a *Api) HandleRegistration(w http.ResponseWriter, r *http.Request) {
 		replyWithError(w, http.StatusBadRequest, fmt.Errorf("decode request body: %v", err))
 		return
 	}
+	defer r.Body.Close()
 	if err := insertUser(a.db, reqBody.Login, reqBody.Password, reqBody.Name); err != nil {
 		err = fmt.Errorf("insert new user: %v", err)
 		logE.Print(err)
@@ -61,6 +62,7 @@ func (a *Api) HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		replyWithError(w, http.StatusBadRequest, err)
 		return
 	}
+	defer r.Body.Close()
 	rows, err := a.db.Query("SELECT id FROM users WHERE login=$1 AND password=$2", reqBody.Login, reqBody.Password)
 	if err != nil {
 		err = fmt.Errorf("select user with login %q: %v", reqBody.Login, err)
@@ -126,6 +128,7 @@ func (a *Api) HandleNewRecord(w http.ResponseWriter, r *http.Request, userId int
 		replyWithError(w, http.StatusBadRequest, err)
 		return
 	}
+	defer r.Body.Close()
 	if err := insertRecord(a.db, reqBody.Name, reqBody.Content, userId); err != nil {
 		err = fmt.Errorf("insert new record: %v", err)
 		replyWithError(w, http.StatusInternalServerError, err)
@@ -147,6 +150,7 @@ func (a *Api) HandleShareRecord(w http.ResponseWriter, r *http.Request, userId i
 		replyWithError(w, http.StatusBadRequest, err)
 		return
 	}
+	defer r.Body.Close()
 	qres, err := a.db.Exec(`
 INSERT INTO shared(record_id, "to")
 SELECT R.id, $1 FROM records R
@@ -176,6 +180,7 @@ func (a *Api) HandleUnshareRecord(w http.ResponseWriter, r *http.Request, userId
 		replyWithError(w, http.StatusBadRequest, err)
 		return
 	}
+	defer r.Body.Close()
 	qres, err := a.db.Exec(`
 DELETE FROM shared S USING records R
 WHERE R.id=$1 AND R.owner_id=$2 AND S.record_id=$1 AND S."to"=$3
